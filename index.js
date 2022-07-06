@@ -1,11 +1,7 @@
 var orbitapi = require('./lib/orbitapi.js')
-var config = require('./config.js')
 var timer = require('./lib/countdown.js')
 const schedule = require('node-schedule');
 const axios = require('axios');
-const { readFile, writeFile } = require('fs');
-let { PythonShell } = require('python-shell')
-
 
 
 
@@ -19,13 +15,11 @@ Le Function
 
 //server requirements
 const express = require('express');
-const cors = require('cors')
 const app = express();
-app.use(cors())
 const port = 3000;
 
 // Weather & Data vars
-let weatherUrl = `https://api.openweathermap.org/data/2.5/onecall?lat=${config.lat}&lon=${config.lon}&exclude=minutely,hourly&appid=${config.apiKey}&units=imperial`
+let weatherUrl = `https://api.openweathermap.org/data/2.5/onecall?lat=${process.env.LAT}&lon=${process.env.LON}&exclude=minutely,hourly&appid=${process.env.APIKEY}&units=imperial`
 
 let currentData = {
   trigger: 'auto',
@@ -46,33 +40,30 @@ let liveData = {
 
 console.log(`-----ORBI ONLINE-----\n-----Power Up @ ${new Date().toLocaleString()}-----`)
 
-app.get('/history', (req, res) => {
-  readFile('data.json', (error, data) => {
-    if (error) {
-      console.log('Error reading historical data: ', error);
-    }
-    let parsedData = JSON.parse(data);
-    console.log(`${new Date().toLocaleString()} Serving ${parsedData.length} historical records.`)
-    res.json(parsedData);
-  })
-})
+// app.get('/history', (req, res) => {
+//   readFile('data.json', (error, data) => {
+//     if (error) {
+//       console.log('Error reading historical data: ', error);
+//     }
+//     let parsedData = JSON.parse(data);
+//     console.log(`${new Date().toLocaleString()} Serving ${parsedData.length} historical records.`)
+//     res.json(parsedData);
+//   })
+// })
 
 // Endpoint for live watering data.
 // Endpoint stopping watering.
-app.get('/live', (req, res) => {
+app.get('/', (req, res) => {
   console.log('Serve Live Data')
   res.json(liveData);
 })
 
 // Endpoint for manually starting watering.
 app.get('/manual', (req, res) => {
-
     let rt = req.query.time;
-  getWeatherManual(rt);
- console.log('manual water triggered')
-      res.send('Manually starting for ' + rt + ' mins.');
-      
-  
+    getWeatherManual(rt);
+    console.log('manual water triggered')
+    res.send('Manually starting for ' + rt + ' mins.');  
 })
 
 // Endpoint stopping watering.
@@ -82,18 +73,18 @@ app.get('/stop', (req, res) => {
 })
 
 // Endpoint for grass health **** UNDER CONST ****
-app.get('/grasshealth', (req, res) => {
-  var options = {
-    mode: 'text',
-  };
+// app.get('/grasshealth', (req, res) => {
+//   var options = {
+//     mode: 'text',
+//   };
 
-  PythonShell.run('grass-health/grass-health.py', options, async function (err, results) {
-    if (err) throw err;
-    let rt = await results;
-    res.send('Grass Health Results: ' + rt + '%')
-  });
+//   PythonShell.run('grass-health/grass-health.py', options, async function (err, results) {
+//     if (err) throw err;
+//     let rt = await results;
+//     res.send('Grass Health Results: ' + rt + '%')
+//   });
 
-})
+// })
 
 
 // ///////// CRON SETUP
@@ -148,7 +139,7 @@ function getWeather() {
       currentData.daySunrise = sunrise.getHours() + ':' + (sunrise.getMinutes() < 10 ? '0' : '') + sunrise.getMinutes();
       currentData.waterStartTime = darkestBeforeDawn.toLocaleString();
       currentData.minutesWatered = waterDuration;
-      saveToJson();
+      //saveToJson();
       // let cronNow = '051 11 * * *'
       // Set Cron Job for watering, with water duration.
       const job = schedule.scheduleJob(cronTime, function () {
@@ -161,7 +152,6 @@ function getWeather() {
 
 // Manual weather
 function getWeatherManual(runTime) {
-  
       water(runTime);
 }
 
@@ -182,8 +172,6 @@ function grassHealth() {
     console.log(healthValue);
     currentData.grasshealth = healthValue;
   });
-
-
 }
 
 
@@ -193,7 +181,7 @@ var log = {
 }
 async function water(runTime) {
   try {
-    let O = await new orbitapi(log, config.auth.email, config.auth.password)
+    let O = await new orbitapi(log, process.env.EMAIL, process.env.PASS)
     await O.getToken()
     var devices = await O.getDevices()
 
@@ -207,7 +195,7 @@ async function water(runTime) {
       liveData.timeStamp = new Date().toLocaleString();
       // Less water for the tree zone.
             
-        await devices[config.device].startZone(i, runTime)
+        await devices[0].startZone(i, runTime)
         await timer(runTime * 60);
 
       
@@ -217,7 +205,7 @@ async function water(runTime) {
       liveData.timeStamp = 0;
 
       console.log('Stopping Zone', i)
-      await devices[config.device].stopZone()
+      await devices[0].stopZone()
       await timer(15);
     }
     console.log('All zones watered -- awaiting next cycle.')
@@ -230,14 +218,14 @@ async function water(runTime) {
 // Make it not drip
 async function stopWater() {
   try {
-    let O = await new orbitapi(log, config.auth.email, config.auth.password)
+    let O = await new orbitapi(log, process.env.EMAIL, process.env.PASS)
     await O.getToken()
     var devices = await O.getDevices()
 
     // Run through all 5 zones for runTime
     for (let i = 1; i < 6; i++) {
       console.log('Stopping Zone', i)
-      await devices[config.device].stopZone()
+      await devices[0].stopZone()
     }
 
   } catch (e) {
