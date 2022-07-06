@@ -1,11 +1,7 @@
 var orbitapi = require('./lib/orbitapi.js')
-var config = require('./config.js')
 var timer = require('./lib/countdown.js')
 const schedule = require('node-schedule');
 const axios = require('axios');
-const { readFile, writeFile } = require('fs');
-let { PythonShell } = require('python-shell')
-
 
 
 
@@ -19,23 +15,12 @@ Le Function
 
 //server requirements
 const express = require('express');
-const cors = require('cors')
 const app = express();
-app.use(cors())
 const port = 3000;
 
 // Weather & Data vars
-let weatherUrl = `https://api.openweathermap.org/data/2.5/onecall?lat=${config.lat}&lon=${config.lon}&exclude=minutely,hourly&appid=${config.apiKey}&units=imperial`
+let weatherUrl = `https://api.openweathermap.org/data/2.5/onecall?lat=${process.env.LAT}&lon=${process.env.LON}&exclude=minutely,hourly&appid=${process.env.APIKEY}&units=imperial`
 
-let currentData = {
-  trigger: 'auto',
-  dayTemp: '',
-  daySunrise: '',
-  waterStartTime: '',
-  minutesWatered: '',
-  grasshealth: 0,
-  time: '',
-}
 
 let liveData = {
   active: false,
@@ -46,20 +31,9 @@ let liveData = {
 
 console.log(`-----ORBI ONLINE-----\n-----Power Up @ ${new Date().toLocaleString()}-----`)
 
-app.get('/history', (req, res) => {
-  readFile('data.json', (error, data) => {
-    if (error) {
-      console.log('Error reading historical data: ', error);
-    }
-    let parsedData = JSON.parse(data);
-    console.log(`${new Date().toLocaleString()} Serving ${parsedData.length} historical records.`)
-    res.json(parsedData);
-  })
-})
-
 // Endpoint for live watering data.
 // Endpoint stopping watering.
-app.get('/live', (req, res) => {
+app.get('/', (req, res) => {
   console.log('Serve Live Data')
   res.json(liveData);
 })
@@ -81,19 +55,7 @@ app.get('/stop', (req, res) => {
   res.send('Stopping all zone watering.');
 })
 
-// Endpoint for grass health **** UNDER CONST ****
-app.get('/grasshealth', (req, res) => {
-  var options = {
-    mode: 'text',
-  };
 
-  PythonShell.run('grass-health/grass-health.py', options, async function (err, results) {
-    if (err) throw err;
-    let rt = await results;
-    res.send('Grass Health Results: ' + rt + '%')
-  });
-
-})
 
 
 // ///////// CRON SETUP
@@ -106,10 +68,6 @@ const waterJob = schedule.scheduleJob(regCron, function () {
   getWeather();
 })
 
-//const grassHealthJob = schedule.scheduleJob(ghCron, function () {
-  //console.log('-----AUTO GRASS HEALTH-----');
-  //grassHealth();
-//})
 
 function getWeather() {
   axios.get(weatherUrl)
@@ -148,7 +106,6 @@ function getWeather() {
       currentData.daySunrise = sunrise.getHours() + ':' + (sunrise.getMinutes() < 10 ? '0' : '') + sunrise.getMinutes();
       currentData.waterStartTime = darkestBeforeDawn.toLocaleString();
       currentData.minutesWatered = waterDuration;
-      saveToJson();
       // let cronNow = '051 11 * * *'
       // Set Cron Job for watering, with water duration.
       const job = schedule.scheduleJob(cronTime, function () {
@@ -163,27 +120,6 @@ function getWeather() {
 function getWeatherManual(runTime) {
   
       water(runTime);
-}
-
-
-
-// Grass Health
-function grassHealth() {
-  console.log('RUN GH')
-  let options = {
-    mode: 'text',
-  };
-  let healthValue;
-
-  PythonShell.run('grass-health/grass-health.py', options, async function (err, results) {
-    if (err) throw err;
-    let rt = await results;
-    healthValue = parseFloat(rt[0], 2);
-    console.log(healthValue);
-    currentData.grasshealth = healthValue;
-  });
-
-
 }
 
 
