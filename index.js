@@ -129,7 +129,7 @@ var log = {
 }
 async function water(runTime) {
   try {
-    let O = await new orbitapi(log, config.auth.email, config.auth.password)
+    let O = await new orbitapi(log, process.env.EMAIL, process.env.PASS)
     await O.getToken()
     var devices = await O.getDevices()
 
@@ -143,7 +143,7 @@ async function water(runTime) {
       liveData.timeStamp = new Date().toLocaleString();
       // Less water for the tree zone.
             
-        await devices[config.device].startZone(i, runTime)
+        await devices[0].startZone(i, runTime)
         await timer(runTime * 60);
 
       
@@ -153,7 +153,7 @@ async function water(runTime) {
       liveData.timeStamp = 0;
 
       console.log('Stopping Zone', i)
-      await devices[config.device].stopZone()
+      await devices[0].stopZone()
       await timer(15);
     }
     console.log('All zones watered -- awaiting next cycle.')
@@ -166,14 +166,14 @@ async function water(runTime) {
 // Make it not drip
 async function stopWater() {
   try {
-    let O = await new orbitapi(log, config.auth.email, config.auth.password)
+    let O = await new orbitapi(log, process.env.EMAIL, process.env.PASS)
     await O.getToken()
     var devices = await O.getDevices()
 
     // Run through all 5 zones for runTime
     for (let i = 1; i < 6; i++) {
       console.log('Stopping Zone', i)
-      await devices[config.device].stopZone()
+      await devices[0].stopZone()
     }
 
   } catch (e) {
